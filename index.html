@@ -1999,20 +1999,31 @@
             line: 'Breathing through one side, then the other, to bring you back to centre.',
             intents: ['regulate', 'focus', 'calm'],
             phases: [
-              I(4, 'In, left nostril', 'thumb closes the right side', {
+              I(6, 'In, left nostril', 'thumb closes the right side', {
                 side: 'L',
               }),
-              O(6, 'Out, right nostril', 'ring finger closes the left side', {
+              H(
+                2,
+                'Hold and switch',
+                'ring finger closes the left, release your thumb',
+                { firstDur: 4 },
+              ),
+              O(8, 'Out, right nostril', 'breathe out through the right', {
                 side: 'R',
               }),
-              I(4, 'In, right nostril', 'left side stays closed', {
-                side: 'R',
-              }),
-              O(6, 'Out, left nostril', 'thumb closes the right side', {
+              I(6, 'In, right nostril', 'stay on this side', { side: 'R' }),
+              H(
+                2,
+                'Hold and switch',
+                'thumb closes the right, release your ring finger',
+                { firstDur: 4.7 },
+              ),
+              O(8, 'Out, left nostril', 'breathe out through the left', {
                 side: 'L',
               }),
             ],
-            rhythm: 'In left 4, out right 6, in right 4, out left 6',
+            rhythm:
+              'In left 6, hold 2, out right 8, in right 6, hold 2, out left 8',
             options: [
               { label: '3 min', min: 3 },
               { label: '5 min', min: 5 },
@@ -2023,9 +2034,9 @@
             steps: [
               'Sit tall. Rest your left hand in your lap and bring your right hand to your face. Your right thumb will close the right nostril and your ring finger the left.',
               'Breathe out fully. Close the right nostril and breathe in through the left.',
-              'Close the left nostril, open the right, and breathe out through the right.',
+              'Pause for a moment at the top while you switch: close the left nostril with your ring finger and release your thumb. Then breathe out through the right.',
               'Breathe in through the right.',
-              'Close the right, open the left, and breathe out through the left. That’s one round.',
+              'Pause again to switch: close the right nostril with your thumb and release your ring finger. Then breathe out through the left. That’s one round.',
             ],
             origin: [
               'Nadi shodhana is a classical pranayama described in hatha yoga texts such as the fifteenth-century Hatha Yoga Pradipika. Nadi means channel and shodhana means cleansing.',
@@ -2538,10 +2549,6 @@
           'Hold empty': 'hold-empty',
           'Sip in a little more': 'sip-more',
           'Long sigh out': 'sigh-out',
-          'In, left nostril': 'in-left',
-          'Out, right nostril': 'out-right',
-          'In, right nostril': 'in-right',
-          'Out, left nostril': 'out-left',
           Hum: 'hum',
           'Deep breath in': 'deep-in',
           'Breathe naturally': 'natural',
@@ -2549,6 +2556,8 @@
           'Ha!': 'ha',
           'Rise slowly': 'rise',
         };
+        /* in FIRST or LATER: play nothing for this phase, rather than the label's usual cue */
+        const QUIET = '-';
         const FIRST = {
           box: [
             'first-in-nose',
@@ -2567,11 +2576,24 @@
           'nadi-shodhana': [
             'first-nadi-1',
             'first-nadi-2',
+            QUIET,
             'first-nadi-3',
             'first-nadi-4',
+            QUIET,
           ],
           bhramari: ['first-in-nose', 'first-hum'],
           ujjayi: ['first-ujjayi-in', 'first-ujjayi-out'],
+        };
+        /* rounds after the first, for techniques whose cues can't come from the phase label alone */
+        const LATER = {
+          'nadi-shodhana': [
+            'in-left',
+            'out-right',
+            QUIET,
+            'in-right',
+            'out-left',
+            QUIET,
+          ],
         };
         function clipPhase(ph) {
           let id = null;
@@ -2589,7 +2611,11 @@
               if (f && f[S.idx]) id = f[S.idx];
               if (S.tech.id === 'kapalabhati' && ph.type === 'rest')
                 id = 'first-natural';
+            } else {
+              const l = LATER[S.tech.id];
+              if (l && l[S.idx]) id = l[S.idx];
             }
+            if (id === QUIET) return;
             if (!id) {
               const c = CUE[ph.label];
               id = Array.isArray(c) ? c[S.cyc % 3] : c;
@@ -4554,13 +4580,19 @@
               c.stroke();
             });
             const active = !s.intro ? s.ph.side : null;
+            /* during a switch hold, the light rests at the top of the side just breathed in */
+            const n = s.tech.phases.length,
+              parked =
+                !s.intro && s.ph.type === 'hold'
+                  ? s.tech.phases[(s.idx + n - 1) % n].side
+                  : null;
             c.font = '500 13px "Hanken Grotesk", system-ui, sans-serif';
             c.textAlign = 'center';
             [
               ['L', cx - a],
               ['R', cx + a],
             ].forEach(([side, x]) => {
-              const on = active === side;
+              const on = (active || parked) === side;
               if (on) glow(c, x, yT, 30, s.col, 0.45);
               c.fillStyle = on ? s.col : rgba(s.ink, 0.12);
               c.beginPath();
@@ -4585,6 +4617,18 @@
               c.fillStyle = 'rgba(255,255,255,.75)';
               c.beginPath();
               c.arc(X(active, u), Y(u), 2.8, 0, TAU);
+              c.fill();
+            } else if (parked) {
+              const x = X(parked, 1),
+                y = Y(1);
+              c.fillStyle = rgba(s.col, 0.55);
+              c.beginPath();
+              c.arc(x, y, 6.5, 0, TAU);
+              c.fill();
+              glow(c, x, y, 30, s.col, 0.5);
+              c.fillStyle = 'rgba(255,255,255,.75)';
+              c.beginPath();
+              c.arc(x, y, 2.8, 0, TAU);
               c.fill();
             }
           },
@@ -4893,7 +4937,7 @@
             };
             txt = ph.say || ph.label.replace('!', '');
             if (S.cyc > 0 && VAR[txt]) txt = VAR[txt][S.cyc % 3];
-            if (S.cyc === 0 && ph.hint && ph.dur >= 4) {
+            if (S.cyc === 0 && ph.hint && phaseDur(ph) >= 4) {
               Voice.seq([txt + '.', 350, ph.hint + '.']);
               return;
             }
@@ -5000,7 +5044,7 @@
           if (!S.breath || !actx || ph.type === 'rest') return;
           try {
             const t = actx.currentTime,
-              d = ph.dur,
+              d = phaseDur(ph),
               out = actx.createGain();
             out.gain.value = 1;
             out.connect(actx.destination);
@@ -5146,8 +5190,8 @@
                 'begin',
                 'again',
               ]
-                .concat(FIRST[t.id] || [])
-                .filter(Boolean),
+                .concat(FIRST[t.id] || [], LATER[t.id] || [])
+                .filter((id) => id && id !== QUIET),
             );
           if (S.setup) {
             $('#sReady').hidden = false;
@@ -5173,6 +5217,11 @@
           cancelAnimationFrame(S.raf);
           S.raf = requestAnimationFrame(frame);
         }
+        /* a phase can run longer in the first round (firstDur), to give a longer
+           first-round voice cue room; the graph and rhythm show the regular round */
+        function phaseDur(ph) {
+          return S.cyc === 0 && ph.firstDur ? ph.firstDur : ph.dur;
+        }
         function isDone() {
           return S.opt.cycles
             ? S.cyc >= S.opt.cycles
@@ -5197,8 +5246,8 @@
           }
           S.pt += dt;
           S.total += dt;
-          while (S.pt >= S.ph[S.idx].dur) {
-            S.pt -= S.ph[S.idx].dur;
+          while (S.pt >= phaseDur(S.ph[S.idx])) {
+            S.pt -= phaseDur(S.ph[S.idx]);
             S.idx++;
             if (S.idx >= S.ph.length) {
               S.idx = 0;
@@ -5233,7 +5282,7 @@
           const t = S.tech,
             ph = S.ph[S.idx],
             intro = S.intro > 0,
-            p = intro ? 0 : Math.min(1, S.pt / ph.dur);
+            p = intro ? 0 : Math.min(1, S.pt / phaseDur(ph));
           const level = intro
             ? S.ph[0].from
             : ph.from + (ph.toL - ph.from) * easeFor(ph)(p);
@@ -5283,8 +5332,8 @@
                 ? ''
                 : ph.count
                   ? ph.count + ' of ' + ph.total
-                  : ph.dur >= 2
-                    ? String(Math.max(1, Math.ceil(ph.dur - S.pt)))
+                  : phaseDur(ph) >= 2
+                    ? String(Math.max(1, Math.ceil(phaseDur(ph) - S.pt)))
                     : '',
             );
             setTxt('#sHint', S.paused ? 'take your time' : ph.hint);
