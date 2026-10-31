@@ -2007,7 +2007,6 @@
                 2,
                 'Hold and switch',
                 'ring finger closes the left, release your thumb',
-                { firstDur: 4 },
               ),
               O(8, 'Out, right nostril', 'breathe out through the right', {
                 side: 'R',
@@ -2017,7 +2016,6 @@
                 2,
                 'Hold and switch',
                 'thumb closes the right, release your ring finger',
-                { firstDur: 4.7 },
               ),
               O(8, 'Out, left nostril', 'breathe out through the left', {
                 side: 'L',
@@ -2576,10 +2574,10 @@
           'physiological-sigh': [null, null, 'first-sigh-out'],
           'nadi-shodhana': [
             { id: 'first-nadi-1', lead: 4.15 },
-            'first-nadi-2',
+            { id: 'first-nadi-2', lead: 1.96 },
             QUIET,
             { id: 'first-nadi-3', lead: 3.9 },
-            'first-nadi-4',
+            { id: 'first-nadi-4', lead: 2.66 },
             QUIET,
           ],
           bhramari: ['first-in-nose', 'first-hum'],
@@ -2602,7 +2600,7 @@
             n = S.intro > 0 ? 0 : S.idx + 1,
             e = f && f[n];
           if (!e || !e.lead || S.led === n || n >= S.ph.length) return;
-          const left = S.intro > 0 ? S.intro : phaseDur(S.ph[S.idx]) - S.pt;
+          const left = S.intro > 0 ? S.intro : S.ph[S.idx].dur - S.pt;
           if (left <= e.lead) {
             S.led = n;
             Clips.play(e.id);
@@ -4954,7 +4952,7 @@
             };
             txt = ph.say || ph.label.replace('!', '');
             if (S.cyc > 0 && VAR[txt]) txt = VAR[txt][S.cyc % 3];
-            if (S.cyc === 0 && ph.hint && phaseDur(ph) >= 4) {
+            if (S.cyc === 0 && ph.hint && ph.dur >= 4) {
               Voice.seq([txt + '.', 350, ph.hint + '.']);
               return;
             }
@@ -5061,7 +5059,7 @@
           if (!S.breath || !actx || ph.type === 'rest') return;
           try {
             const t = actx.currentTime,
-              d = phaseDur(ph),
+              d = ph.dur,
               out = actx.createGain();
             out.gain.value = 1;
             out.connect(actx.destination);
@@ -5236,11 +5234,6 @@
           cancelAnimationFrame(S.raf);
           S.raf = requestAnimationFrame(frame);
         }
-        /* a phase can run longer in the first round (firstDur), to give a longer
-           first-round voice cue room; the graph and rhythm show the regular round */
-        function phaseDur(ph) {
-          return S.cyc === 0 && ph.firstDur ? ph.firstDur : ph.dur;
-        }
         function isDone() {
           return S.opt.cycles
             ? S.cyc >= S.opt.cycles
@@ -5265,8 +5258,8 @@
           }
           S.pt += dt;
           S.total += dt;
-          while (S.pt >= phaseDur(S.ph[S.idx])) {
-            S.pt -= phaseDur(S.ph[S.idx]);
+          while (S.pt >= S.ph[S.idx].dur) {
+            S.pt -= S.ph[S.idx].dur;
             S.idx++;
             if (S.idx >= S.ph.length) {
               S.idx = 0;
@@ -5302,7 +5295,7 @@
           const t = S.tech,
             ph = S.ph[S.idx],
             intro = S.intro > 0,
-            p = intro ? 0 : Math.min(1, S.pt / phaseDur(ph));
+            p = intro ? 0 : Math.min(1, S.pt / ph.dur);
           const level = intro
             ? S.ph[0].from
             : ph.from + (ph.toL - ph.from) * easeFor(ph)(p);
@@ -5352,8 +5345,8 @@
                 ? ''
                 : ph.count
                   ? ph.count + ' of ' + ph.total
-                  : phaseDur(ph) >= 2
-                    ? String(Math.max(1, Math.ceil(phaseDur(ph) - S.pt)))
+                  : ph.dur >= 2
+                    ? String(Math.max(1, Math.ceil(ph.dur - S.pt)))
                     : '',
             );
             setTxt('#sHint', S.paused ? 'take your time' : ph.hint);
