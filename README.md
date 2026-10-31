@@ -8,7 +8,7 @@ Find the breath for this moment: ten guided breathing techniques, with a voice g
 
 ## What it does
 
-Tidal gathers ten techniques from yoga, the physiology lab and your own reflexes, from box breathing and the physiological sigh to alternate nostril breathing and breath of joy, and lets you filter them by what you need right now. Each technique has its own animated guide that paces every inhale, hold and exhale, with my recorded voice, an optional breath tone and chimes, and background music or binaural beats synthesised live in the browser. Every page also covers how to practise, where the technique comes from, what the research says, and when to take care.
+Tidal Breathwork gathers ten techniques from yoga, the physiology lab and your own reflexes, from box breathing and the physiological sigh to alternate nostril breathing and breath of joy, and lets you filter them by what you need right now. Each technique has its own animated guide that paces every inhale, hold and exhale, with my recorded voice, an optional breath tone and chimes, and background music or binaural beats synthesised live in the browser. Every page also covers how to practise, where the technique comes from, what the research says, and when to take care.
 
 ## Built with
 

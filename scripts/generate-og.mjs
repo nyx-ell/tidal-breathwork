@@ -1,4 +1,4 @@
-// Generates the social sharing image, icons and README screenshot for Tidal.
+// Generates the social sharing image, icons and README screenshot for Tidal Breathwork.
 //
 //   npm install && npx playwright install chromium
 //   npm run og

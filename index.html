@@ -437,10 +437,12 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        white-space: nowrap;
       }
       .mark svg {
         width: 22px;
         height: 22px;
+        flex: none;
       }
       .mark .wm {
         display: flex;
@@ -1255,6 +1257,16 @@
         max-width: 34rem;
         line-height: 1.5;
       }
+      .s-tip {
+        color: var(--muted);
+        margin: 0.7rem auto 0;
+        font-size: 0.85rem;
+        max-width: 26rem;
+        line-height: 1.45;
+      }
+      .s-tip:not([hidden]) + .s-ready {
+        margin-top: 1.3rem;
+      }
       .s-ctrl {
         display: flex;
         justify-content: center;
@@ -1393,18 +1405,27 @@
           width: 19px;
           height: 19px;
         }
-        #goList .lbl {
-          display: none;
-        }
-        #goList {
-          padding: 0;
-          width: 40px;
+        /* keep the full name on one line beside the header buttons */
+        .bar .mark {
+          font-size: clamp(0.9rem, 14vw - 2rem, 1.45rem);
         }
         .d-grid {
           grid-template-columns: 1fr;
         }
         .practice {
           position: static;
+        }
+      }
+      /* the full name needs the room: the header buttons go icon-only before they can collide */
+      @media (max-width: 540px) {
+        #goList,
+        #musicBtn {
+          padding: 0;
+          width: 40px;
+        }
+        #goList .lbl,
+        #musicBtn .lbl {
+          display: none;
         }
       }
       @media (max-width: 560px) {
@@ -1432,7 +1453,7 @@
     <canvas id="ambient" aria-hidden="true"></canvas>
     <div class="wrap">
       <div class="bar">
-        <a class="mark" href="#" aria-label="Tidal home">
+        <a class="mark" href="#" aria-label="Tidal Breathwork home">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -1447,7 +1468,7 @@
             />
             <circle cx="12" cy="6" r="2.4" />
           </svg>
-          Tidal
+          Tidal Breathwork
         </a>
         <div class="tools">
           <button class="tbtn" id="goList" aria-label="Techniques">
@@ -1526,7 +1547,7 @@
       <main id="view"></main>
       <footer class="foot">
         <div class="f-l">
-          <a class="mark f-mark" href="#" aria-label="Tidal home"
+          <a class="mark f-mark" href="#" aria-label="Tidal Breathwork home"
             ><svg
               viewBox="0 0 24 24"
               fill="none"
@@ -1540,7 +1561,7 @@
                 opacity=".5"
               />
               <circle cx="12" cy="6" r="2.4" /></svg
-            >Tidal</a
+            >Tidal Breathwork</a
           >
           <p>
             Breathwork supports wellbeing but doesn’t replace medical care. If
@@ -1597,6 +1618,10 @@
         <p class="s-phase" id="sPhase" aria-live="polite"></p>
         <p class="s-count" id="sCount"></p>
         <p class="s-hint" id="sHint"></p>
+        <p class="s-tip" id="sTip" hidden>
+          Can’t hear the guide? Check your phone isn’t on silent and your volume
+          is up.
+        </p>
         <button class="pill primary s-ready" id="sReady" hidden>
           I’m ready
         </button>
@@ -2060,10 +2085,10 @@
             line: 'A soft sound at the back of the throat, like waves on a quiet shore.',
             intents: ['focus', 'restore', 'regulate'],
             phases: [
-              I(5, 'Breathe in', 'soft ocean sound in the throat'),
-              O(6, 'Breathe out', 'same sound, slow and even'),
+              I(7, 'Breathe in', 'soft ocean sound in the throat'),
+              O(8, 'Breathe out', 'same sound, slow and even'),
             ],
-            rhythm: 'In 5, out 6, with a gentle throat sound',
+            rhythm: 'In 7, out 8, with a gentle throat sound',
             options: [
               { label: '3 min', min: 3 },
               { label: '5 min', min: 5 },
@@ -2897,7 +2922,7 @@
                   if (cur && cur.tick) cur.tick(ac.currentTime + 0.45);
                 }, 100);
               }
-              if (ac.state === 'suspended') ac.resume();
+              if (ac.state !== 'running' && ac.state !== 'closed') ac.resume();
               return true;
             } catch (e) {
               return false;
@@ -3738,6 +3763,10 @@
                 master.gain.setTargetAtTime(v * 0.8, ac.currentTime, 0.1);
             },
             setBin,
+            wake() {
+              if (ac && ac.state !== 'running' && ac.state !== 'closed')
+                ac.resume();
+            },
             duck(sec) {
               if (!master || !ac) return;
               const t = ac.currentTime;
@@ -3958,6 +3987,7 @@
           if (dObs) dObs.disconnect();
           Clips.ok && (Voice.src = 'nicole');
           $('#begin').addEventListener('click', () => {
+            unlockAudio();
             const i = parseInt(
               view.querySelector('input[name=len]:checked').value,
               10,
@@ -4881,13 +4911,34 @@
           b.setAttribute('aria-label', S.paused ? 'Resume' : 'Pause');
         }
 
+        /* iOS mutes Web Audio with the silent switch unless the page asks for
+           playback. Call this first, synchronously, in any tap that starts sound. */
+        let silentPlayed = false;
+        function unlockAudio() {
+          try {
+            if (navigator.audioSession)
+              navigator.audioSession.type = 'playback';
+          } catch (e) {}
+          /* older Safari: playing an <audio> element once switches the page to playback */
+          if (!navigator.audioSession && !silentPlayed) {
+            silentPlayed = true;
+            try {
+              const a = new Audio('audio/silence.wav');
+              const p = a.play();
+              if (p && p.catch) p.catch(() => {});
+            } catch (e) {}
+          }
+          ensureAudio();
+          Music.wake();
+        }
         function ensureAudio() {
           try {
             if (!actx) {
               const AC = window.AudioContext || window.webkitAudioContext;
               if (AC) actx = new AC();
             }
-            if (actx && actx.state === 'suspended') actx.resume();
+            if (actx && actx.state !== 'running' && actx.state !== 'closed')
+              actx.resume();
           } catch (e) {}
         }
         function tone(f) {
@@ -5027,6 +5078,7 @@
           S.intro = 5;
           S.last = performance.now();
           $('#sReady').hidden = true;
+          $('#sTip').hidden = true;
           if (useClips()) Clips.seq([again ? 'again' : 'begin']);
           else
             Voice.seq(
@@ -5099,6 +5151,7 @@
             );
           if (S.setup) {
             $('#sReady').hidden = false;
+            $('#sTip').hidden = !matchMedia('(pointer: coarse)').matches;
             if (useClips())
               Clips.seq([
                 'welcome',
@@ -5313,11 +5366,12 @@
           } else S.last = performance.now();
         });
         $('#sReady').addEventListener('click', () => {
-          ensureAudio();
+          unlockAudio();
           beginIntro(false);
           $('#sPause').focus();
         });
         $('#sBreath').addEventListener('click', () => {
+          unlockAudio();
           S.breath = !S.breath;
           store.set('breath', S.breath ? '1' : '0');
           if (S.breath) ensureAudio();
@@ -5327,6 +5381,7 @@
           if (o) o.checked = S.breath;
         });
         $('#sVoice').addEventListener('click', () => {
+          unlockAudio();
           S.voice = !S.voice;
           store.set('voice', S.voice ? '1' : '0');
           if (!S.voice) Voice.stop();
@@ -5398,14 +5453,16 @@
         });
         $('#sEnd').addEventListener('click', () => closeSession());
         $('#sSound').addEventListener('click', () => {
+          unlockAudio();
           S.sound = !S.sound;
           store.set('sound', S.sound ? '1' : '0');
           if (S.sound) ensureAudio();
           setSoundBtn();
         });
-        $('#again').addEventListener('click', () =>
-          startSession(S.tech, S.opt, true),
-        );
+        $('#again').addEventListener('click', () => {
+          unlockAudio();
+          startSession(S.tech, S.opt, true);
+        });
         $('#closeDone').addEventListener('click', () => closeSession());
         document.addEventListener('keydown', (e) => {
           if (sess.hidden) return;
@@ -5503,14 +5560,23 @@
         $('#binOpts')
           .querySelectorAll('.bchip')
           .forEach((b) =>
-            b.addEventListener('click', () => Music.setBin(b.dataset.id)),
+            b.addEventListener('click', () => {
+              unlockAudio();
+              Music.setBin(b.dataset.id);
+            }),
           );
         $('#tracks')
           .querySelectorAll('.track')
           .forEach((b) =>
-            b.addEventListener('click', () => Music.set(b.dataset.id)),
+            b.addEventListener('click', () => {
+              unlockAudio();
+              Music.set(b.dataset.id);
+            }),
           );
-        $('#mPlay').addEventListener('click', () => Music.toggle());
+        $('#mPlay').addEventListener('click', () => {
+          unlockAudio();
+          Music.toggle();
+        });
         $('#sTracks').innerHTML = Music.TRACKS.map(
           (t) =>
             `<button class="bchip" role="radio" aria-checked="false" data-id="${t.id}">${t.name}</button>`,
@@ -5518,9 +5584,15 @@
         $('#sTracks')
           .querySelectorAll('.bchip')
           .forEach((b) =>
-            b.addEventListener('click', () => Music.set(b.dataset.id)),
+            b.addEventListener('click', () => {
+              unlockAudio();
+              Music.set(b.dataset.id);
+            }),
           );
-        $('#sMPlay').addEventListener('click', () => Music.toggle());
+        $('#sMPlay').addEventListener('click', () => {
+          unlockAudio();
+          Music.toggle();
+        });
         const smv = $('#sMVol');
         smv.value = Music.vol;
         smv.addEventListener('input', () => {
