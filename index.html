@@ -1995,14 +1995,11 @@
             name: 'Alternate nostril breathing',
             color: '#6FA7A3',
             visual: 'channels',
-            introLen: 5.2,
+            introLen: 9.35,
             alt: 'Nadi shodhana, “channel cleansing”',
             line: 'Breathing through one side, then the other, to bring you back to centre.',
             intents: ['regulate', 'focus', 'calm'],
             phases: [
-              H(0, 'Close your right nostril', 'thumb on the right side', {
-                firstDur: 4.15,
-              }),
               I(6, 'In, left nostril', 'thumb closes the right side', {
                 side: 'L',
               }),
@@ -2578,8 +2575,7 @@
           'extended-exhale': ['first-in-nose', 'first-extended-out'],
           'physiological-sigh': [null, null, 'first-sigh-out'],
           'nadi-shodhana': [
-            'first-nadi-1',
-            QUIET,
+            { id: 'first-nadi-1', lead: 4.15 },
             'first-nadi-2',
             QUIET,
             { id: 'first-nadi-3', lead: 3.9 },
@@ -2592,7 +2588,6 @@
         /* rounds after the first, for techniques whose cues can't come from the phase label alone */
         const LATER = {
           'nadi-shodhana': [
-            QUIET,
             'in-left',
             'out-right',
             QUIET,
@@ -2604,10 +2599,11 @@
         function leadIn() {
           if (S.cyc !== 0 || !useClips()) return;
           const f = FIRST[S.tech.id],
-            n = S.idx + 1,
+            n = S.intro > 0 ? 0 : S.idx + 1,
             e = f && f[n];
           if (!e || !e.lead || S.led === n || n >= S.ph.length) return;
-          if (phaseDur(S.ph[S.idx]) - S.pt <= e.lead) {
+          const left = S.intro > 0 ? S.intro : phaseDur(S.ph[S.idx]) - S.pt;
+          if (left <= e.lead) {
             S.led = n;
             Clips.play(e.id);
           }
@@ -4602,12 +4598,10 @@
             });
             const active = !s.intro ? s.ph.side : null;
             /* during a switch hold, the light rests at the top of the side just breathed in */
-            /* (or, with lungs empty, at the bottom of the side about to breathe in) */
             const n = s.tech.phases.length,
-              full = s.ph.from > 0.5,
               parked =
                 !s.intro && s.ph.type === 'hold'
-                  ? s.tech.phases[(s.idx + n + (full ? -1 : 1)) % n].side
+                  ? s.tech.phases[(s.idx + n - 1) % n].side
                   : null;
             c.font = '500 13px "Hanken Grotesk", system-ui, sans-serif';
             c.textAlign = 'center';
@@ -4642,8 +4636,8 @@
               c.arc(X(active, u), Y(u), 2.8, 0, TAU);
               c.fill();
             } else if (parked) {
-              const x = X(parked, full ? 1 : 0),
-                y = Y(full ? 1 : 0);
+              const x = X(parked, 1),
+                y = Y(1);
               c.fillStyle = rgba(s.col, 0.55);
               c.beginPath();
               c.arc(x, y, 6.5, 0, TAU);
@@ -5266,7 +5260,7 @@
             if (S.intro <= 0) {
               S.intro = 0;
               enterPhase();
-            }
+            } else leadIn();
             return;
           }
           S.pt += dt;
@@ -5282,7 +5276,7 @@
                 return;
               }
             }
-            if (phaseDur(S.ph[S.idx]) > 0) enterPhase();
+            enterPhase();
           }
           leadIn();
         }
@@ -5347,7 +5341,7 @@
               setTxt('#sHint', POSE[S.tech.id]);
             } else {
               setTxt('#sPhase', 'Breathe out gently');
-              setTxt('#sCount', String(Math.min(5, Math.ceil(S.intro))));
+              setTxt('#sCount', S.intro <= 5 ? String(Math.ceil(S.intro)) : '');
               setTxt('#sHint', 'empty your lungs before we begin');
             }
           } else {
